@@ -2,6 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FILENAME "magazzino.txt"
+#define MAX_LEN 100
+
+// Struttura base per ogni ricambio
+typedef struct Ricambio {
+    char nome[MAX_LEN];
+    char codice[MAX_LEN];
+    int quantita;
+    char scaffalatura[MAX_LEN];
+} Ricambio;
+
 int main() {
     menu();  // Avvia il menu per gestire il magazzino
     return 0;
