@@ -1,0 +1,298 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define FILENAME "magazzino.txt"
+#define MAX_LEN 100
+
+// Struttura base per ogni ricambio
+typedef struct Ricambio {
+    char nome[MAX_LEN];
+    char codice[MAX_LEN];
+    int quantita;
+    char scaffalatura[MAX_LEN];
+} Ricambio;
+
+int main() {
+    menu();  // Avvia il menu per gestire il magazzino
+    return 0;
+}
+void menu() {
+    int scelta = 0;
+    while (scelta != 6) {
+        printf("\n--- GESTIONALE MAGAZZINO AUTOFFICINA ---\n");
+        printf("1. Ricerca ricambio\n");
+        printf("2. Aggiungi quantita' ricambio\n");
+        printf("3. Decurtare quantita' ricambio\n");
+        printf("4. Visualizza tutti i ricambi ordinati per scaffalatura\n");
+        printf("5. Visualizza tutti i ricambi in ordine alfabetico per nome\n");
+        printf("6. Esci\n");
+        printf("Scelta: ");
+        scanf("%d", &scelta);
+        getchar();
+
+        switch (scelta) {
+            case 1:
+                ricercaRicambio();
+                break;
+            case 2:
+                aggiungiQuantita();
+                break;
+            case 3:
+                decurtaQuantita();
+                break;
+            case 4:
+                stampaRicambiOrdinati();
+                break;
+            case 5:
+                stampaRicambiAlfabetici();
+                break;
+            case 6:
+                printf("Uscita dal programma.\n");
+                break;
+            default:
+                printf("Scelta non valida.\n");
+        }
+    }
+}
+//1
+void ricercaRicambio() {
+    Ricambio *ricambi = NULL;          //ricambi   un puntatore a una struttura di tipo Ricambio
+    int count = caricaRicambi(&ricambi);
+     char codice[MAX_LEN];                //codice = codice ricambio
+    int trovato = 0;
+//uso count (numero di righe del file) come mezzo di controllo in modo da verificare che il file non sia vuoto
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio da cercare: ");
+    fgets(codice, MAX_LEN, stdin);   //legge da stdin, copia fino a maxlen-1 caratteri, inserisce nell'array CODICE
+
+
+
+
+    codice[strcspn(codice, "\n")] = 0; /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+
+
+
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            printf("\nRicambio trovato:\n");
+            printf("  Nome: %s\n", ricambi[i].nome);
+            printf("  Codice: %s\n", ricambi[i].codice);
+            printf("  Quantita': %d\n", ricambi[i].quantita);
+            printf("  Scaffalatura: %s\n", ricambi[i].scaffalatura);
+            alertQuantita(ricambi[i].quantita);
+            trovato = 1;
+            break;      //viene utilizzato affinch  una volta trovato il ricambio non continuo a cercare ed esco dal for
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    }
+
+    free(ricambi);
+}
+
+//2
+int caricaRicambi(Ricambio **ricambi) {       //carica ricambi nella malloc
+    int count = contaRigheFile(FILENAME);
+    FILE *file = fopen(FILENAME, "r");
+
+    if (count == 0 || file==NULL) return 0;
+
+    *ricambi = malloc(count * sizeof(Ricambio));
+    if (*ricambi == NULL) {
+        printf("Errore allocazione memoria.\n");
+        exit(1);
+    }
+//il ciclo for riempie un arrey dinamico precedentemente creato (malloc)
+    for (int i = 0; i < count; i++) {
+        fscanf(file, "%99[^;];%99[^;];%d;%99[^\n]\n",  //99[^;] sta ad indicare che legge al massimo 99 caratteri tranne ;
+               (*ricambi)[i].nome,
+               (*ricambi)[i].codice,
+               &(*ricambi)[i].quantita,     //uso & perch    un intero
+               (*ricambi)[i].scaffalatura);
+    }
+
+    fclose(file);
+    return count;
+}
+
+
+
+//3
+int contaRigheFile(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    int righe = 0;
+    char ch;
+
+    if (file==NULL)
+        return 0;
+
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == '\n')
+            righe++;
+    }
+
+    fclose(file);
+    return righe;
+}
+void alertQuantita(int q) {
+    if (q == 0) {
+        printf("PARTICOLARE NON PRESENTE IN MAGAZZINO\n");
+    }
+    else if (q <= 4) {
+        printf("ATTENZIONE: Quantita' in magazzino = %d\n", q);
+    }
+     else if (q > 4) {
+        printf("Quantita' = %d\n", q);
+    }
+}
+
+void aggiungiQuantita() {
+    Ricambio *ricambi = NULL;          //ricambi   un puntatore a una struttura di tipo Ricambio
+    int count = caricaRicambi(&ricambi);
+    char codice[MAX_LEN];
+    int quantita;
+
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio: ");
+    fgets(codice, MAX_LEN, stdin);
+
+
+    codice[strcspn(codice, "\n")] = 0;   /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+
+    printf("Inserisci quantita' da aggiungere: ");
+    scanf("%d", &quantita);
+    getchar();     //rimuove l'eventuale \n rimasto nel buffer
+
+    int trovato = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            ricambi[i].quantita += quantita;          //ricambi[i].quantita = ricambi[i].quantita + quantita
+            alertQuantita(ricambi[i].quantita);
+            trovato = 1;
+            break;
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    } else {
+        salvaRicambi(ricambi, count);
+        printf("Quantita' aggiunta con successo.\n");
+    }
+
+    free(ricambi);
+}
+
+
+
+//un problema di questa istruzione   che volta per volta viene ricopiato tutto il file di testo perci  non   molto efficiente
+void salvaRicambi(Ricambio *ricambi, int count) {
+    FILE *file = fopen(FILENAME, "w");
+
+    for (int i = 0; i < count; i++) {
+        fprintf(file, "%s;%s;%d;%s\n",
+                ricambi[i].nome,
+                ricambi[i].codice,
+                ricambi[i].quantita,
+                ricambi[i].scaffalatura);
+    }
+
+    fclose(file);
+}
+void decurtaQuantita() {
+    Ricambio *ricambi = NULL;
+    int count = caricaRicambi(&ricambi);
+    char codice[MAX_LEN];
+    int quantita;
+
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio: ");
+    fgets(codice, MAX_LEN, stdin);
+
+
+    codice[strcspn(codice, "\n")] = 0;  /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+
+    printf("Inserisci quantita' da decurtare: ");
+    scanf("%d", &quantita);
+    getchar();               //rimuove \n
+
+    int trovato = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            if (ricambi[i].quantita >= quantita) {
+                ricambi[i].quantita -= quantita;
+                alertQuantita(ricambi[i].quantita);
+                trovato = 1;
+            }
+            else {
+                printf("Quantita' insufficiente. Operazione non eseguita.\n");
+                free(ricambi);
+                return;
+            }
+            break;
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    } else {
+        salvaRicambi(ricambi, count);
+        printf("Quantita' decurtata con successo.\n");
+    }
+
+    free(ricambi);
+}
+void stampaRicambiOrdinati() {
+    Ricambio *ricambi = NULL;
+    int count = caricaRicambi(&ricambi);
+
+    if (count == 0) {
+        printf("Nessun ricambio da visualizzare.\n");
+        return;
+    }
+
+    ordinaRicambi(ricambi, count);
+
+    printf("\n--- RICAMBI ORDINATI PER SCAFFALATURA ---\n");
+    for (int i = 0; i < count; i++) {
+//%-20s lo uso per far si da avere una "inquadratura" dei ricambi e delle informazioni inserite. 20 indica che ho almeno 20 spazi per il nome
+         printf("%-20s | Codice: %-10s | Quantità: %-3d | Scaffale: %s\n",     
+               ricambi[i].nome,
+               ricambi[i].codice,
+               ricambi[i].quantita,
+               ricambi[i].scaffalatura);
+    }
+
+    free(ricambi);
+}
+//questa funzione fa uso del bubble sort per l'ordinamento
+void ordinaRicambi(Ricambio *ricambi, int count) {
+    Ricambio temp;     //temp è una variabile locale (della funzione) di tipo struct RICAMBIO
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (strcmp(ricambi[j].scaffalatura, ricambi[j + 1].scaffalatura) > 0) {   /*se >0 l'elemento precedente viene scambiato*/
+                temp = ricambi[j];
+                ricambi[j] = ricambi[j + 1];
+                ricambi[j + 1] = temp;
+            }
+        }
+    }
+}
