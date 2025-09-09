@@ -1,0 +1,476 @@
+//Progetto definitivo Vona Panetta.
+#include <stdio.h>
+#include <stdlib.h> //questa libreria gestisce la memoria dinamica
+#include <string.h>
+
+#define FILENAME "Magazzino2.txt"   //file di testo che contiene i ricambi con le relative informazioni
+#define MAX_LEN 100
+
+// Struttura base per ogni ricambio
+typedef struct Ricambio {
+    char nome[MAX_LEN];
+    char codice[MAX_LEN];
+    int quantita;
+    char scaffalatura[MAX_LEN];
+    int prezzo;
+} Ricambio;  //Ricambio è il nome della struct ricambio, quindi quando inizializzo una variabile sarà di tipo Ricambio
+
+// Struttura del nodo che andremo ad utilizzare per la lista concatenata
+//Un nodo della lista concatenata contiene il dato(ricambio) e l'indirizzo del nodo successivo (*next)
+typedef struct Nodo {
+    Ricambio ricambio;     //definisco una variabile (ricambio) di tipo Ricambio (ogni nodo conterrà un ricambio con nome, codice, etc)
+    struct Nodo *next;     //puntatore ad un nodo della stessa struttura( nello specifico punta al nodo successivo) 
+} Nodo;
+
+/* Prototipi delle funzioni utilizzate nel file di code blocks "funzioni.h"( nei file .h vengono inseriti define,struct e prototi delle funzioni)*/
+void menu();
+void ricercaRicambio();
+void aggiungiQuantita();
+void decurtaQuantita();
+void stampaRicambiOrdinati();
+void stampaRicambiAlfabetici();
+void visualizzaPrezzo();
+void salvaRicambi(Ricambio *ricambi, int count);  //passiamo
+int contaRigheFile(const char *filename);  //passa il nome del file di testo(Magazzino2.txt)
+int caricaRicambi(Ricambio **ricambi);
+void ordinaRicambi(Ricambio *ricambi, int count);
+void alertQuantita(int q);
+Nodo* inserisciInOrdine(Nodo* head, Ricambio r);
+
+
+
+
+int main() {
+    menu();  // Avvia il menu per gestire il magazzino
+    return 0;
+}
+
+void menu() {
+    int scelta = 0;
+    while (scelta != 7) {
+        printf("\n GESTIONALE MAGAZZINO AUTOFFICINA \n");
+        printf("1. Ricerca ricambio\n");
+        printf("2. Aggiungi quantita' ricambio\n");
+        printf("3. Decurtare quantita' ricambio\n");
+        printf("4. Visualizza tutti i ricambi ordinati per scaffalatura\n");
+        printf("5. Visualizza tutti i ricambi in ordine alfabetico per nome\n");
+        printf("6. Visualizza prezzo\n");
+        printf("7. Esci\n");
+        printf("Scelta: ");
+        scanf("%d", &scelta);
+        getchar();  //elimina il carattere "/n" presente nel buffer in seguita alla scanf "scelta"
+
+        switch (scelta) {
+            case 1:
+                ricercaRicambio();
+                break;  // una volta eseguito un case il break mi fa uscire dallo switch case
+            case 2:
+                aggiungiQuantita();
+                break;
+            case 3:
+                decurtaQuantita();
+                break;
+            case 4:
+                stampaRicambiOrdinati();
+                break;
+            case 5:
+                stampaRicambiAlfabetici();
+                break;
+            case 6:
+                visualizzaPrezzo();
+                break;
+            case 7:
+                printf("Uscita dal programma.\n");
+                break;
+            default:
+                printf("Scelta non valida.\n");
+        }
+    }
+}
+
+void visualizzaPrezzo(){
+    Ricambio *ricambi = NULL; 
+/*ricambi è un puntatore ad una variabile di tipo Ricambio(struct). Corrisponde all'indirizzo di memoria dell'array dinamico che conterrà i ricambi caricati da file di testo. "ricambi" viene utilizzato per gestire un array dinamico di  ricambi.Se ricambi punta a un array di Ricambio, allora *ricambi è il primo elemento dell’array*/
+
+    int count = caricaRicambi(&ricambi); 
+/* caricaRicambi(&ricambi) è una funzione che carica i ricambi da un file e li mette in memoria dinamica. Sto passando l'indirizzo del puntatore ricambi*/
+
+    char codice[MAX_LEN];
+    int trovato = 0;
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+    printf("Inserisci codice ricambio da cercare: ");
+    fgets(codice, MAX_LEN, stdin);   //uso fgets al posto di scanf perchè così posso specificare la massima lunghezza della mia stringa
+/*serve a leggere una riga di testo da tastiera (cioè da input dell’utente) e salvarla nella variabile codice. stdin è lo standard input, cioè la tastiera*/
+/*visto che fgets include in maniera automatica alla fine "/n" utilizzo la funzione  successiva per eliminarlo (se presente), cioè lo sostituisce con "/0" */
+    codice[strcspn(codice, "\n")] = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {  
+            printf("\nRicambio trovato:\n");
+            printf("  Prezzo : %d euro\n", ricambi[i].prezzo);
+            trovato = 1;
+            break;
+        }
+    }
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    }
+
+    free(ricambi); /*libera la memoria dinamica alloca con malloc precedentemente occupata dall'array, altrimenti si verifica una perdita di memoria, cioè il programma occupa sempre più memoria anche se non ne ha più bisogno*/
+}
+
+
+//1
+void ricercaRicambio() {
+    Ricambio *ricambi = NULL;          
+/*ricambi è un puntatore ad una variabile di tipo Ricambio(struct). Corrisponde all'indirizzo di memoria dell'array dinamico che conterrà i ricambi caricati da file di testo. "ricambi" viene utilizzato per gestire un array dinamico di  ricambi.Se ricambi punta a un array di Ricambio, allora *ricambi è il primo elemento dell’array*/
+
+    int count = caricaRicambi(&ricambi);
+    char codice[MAX_LEN];                //codice = codice ricambio
+    int trovato = 0;
+//uso count (numero di righe del file) come mezzo di controllo in modo da verificare che il file non sia vuoto
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio da cercare: ");
+    fgets(codice, MAX_LEN, stdin);   //legge da stdin, copia fino a maxlen-1 caratteri all'interno di codice
+
+    codice[strcspn(codice, "\n")] = 0; /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+// con questo for scorro l'arrey dinamico
+    for (int i = 0; i < count; i++) {  
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            printf("\nRicambio trovato:\n");
+            printf("  Nome: %s\n", ricambi[i].nome);
+            printf("  Codice: %s\n", ricambi[i].codice);
+            printf("  Quantita': %d\n", ricambi[i].quantita);
+            printf("  Scaffalatura: %s\n", ricambi[i].scaffalatura);
+            alertQuantita(ricambi[i].quantita);  
+            trovato = 1;
+            break;      //viene utilizzato affinché una volta trovato il ricambio non continuo a cercare ed esco dal for
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    }
+
+    free(ricambi);
+}
+
+//2
+/* questa funzione legge da un file di testo, carica i dati in memoria dinamica e ritorna il numero di ricambi letti(count), che serve per capire quanto spazio allocare*/
+/*alla funzione carica ricambi viene passato l'indirizzo di memoria del puntatore ricambi*/
+int caricaRicambi(Ricambio **ricambi) {       
+    int count = contaRigheFile(FILENAME);  //count è il numero delle righe contate attraverso conta righe
+    FILE *file = fopen(FILENAME, "r");
+
+    if (count == 0 || file==NULL) 
+        return 0;
+
+    *ricambi = malloc(count * sizeof(Ricambio));  
+/*riserva spazio in memoria dinamica pari al numero di righe*le dimensioni della struct ricambio e *ricambi è il puntatore vero e proprio dove mettiamo l’array*/
+
+    if (*ricambi == NULL) {
+        printf("Errore allocazione memoria.\n");
+        exit(1);  //Serve per terminare immediatamente il programma in qualsiasi punto, non solo alla fine del main.
+    }
+//il ciclo for riempie l'array dinamico precedentemente creato
+    for (int i = 0; i < count; i++) {
+        fscanf(file, "%99[^;];%99[^;];%d;%99[^;];%d\n",  /*  %99[^;] sta ad indicare che legge al massimo 99 caratteri tranne ";" per i riconoscere le diverse info */
+               (*ricambi)[i].nome,
+               (*ricambi)[i].codice,
+               &(*ricambi)[i].quantita,     //uso & perché è un intero
+               (*ricambi)[i].scaffalatura,
+               &(*ricambi)[i].prezzo);  //aggiunta fatta per la funzione prezzo
+    }
+
+    fclose(file);
+    return count; //dopo aver riempito l'array ritorno count perchè serve alla funzione chiamante
+}
+
+//3 
+/* è una funzione che prende in input il FILENAME. filename punta al primo carattere di una stringa.Il puntatore serve perchè in C le stringhe sono array di caratteri terminati da \0, e gli array sono passati come puntatori.*/
+
+int contaRigheFile(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    int righe = 0;
+    char ch;  //serve per leggere un carattere alla volta dal file
+
+    if (file==NULL)  //se file punta a NULL allora il file è inesistente oppure non può essere aperto
+        return 0;
+
+/*fgetc(file) legge un carattere alla volta dal file finchè non arriva al carattere EOF*/
+
+    while ((ch = fgetc(file)) != EOF) {
+        if (ch == '\n')
+            righe++;
+    }
+
+    fclose(file);  //chiusura del file per evitare problemi
+    return righe;
+}
+
+
+void alertQuantita(int q) {
+    if (q == 0) {
+        printf("PARTICOLARE NON PRESENTE IN MAGAZZINO\n");
+    }
+    else if (q <= 4) {
+        printf("ATTENZIONE: Quantita' in magazzino = %d\n", q);
+    }
+     else if (q > 4) {
+        printf("Quantita' = %d\n", q);
+    }
+}
+
+
+
+void aggiungiQuantita() {
+    Ricambio *ricambi = NULL;       
+/*ricambi è un puntatore ad una variabile di tipo Ricambio(struct). Corrisponde all'indirizzo di memoria dell'array dinamico che conterrà i ricambi caricati da file di testo. "ricambi" viene utilizzato per gestire un array dinamico di  ricambi.Se ricambi punta a un array di Ricambio, allora *ricambi è il primo elemento dell’array*/
+
+    int count = caricaRicambi(&ricambi);
+    char codice[MAX_LEN];
+    int quantita;
+
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio: ");
+    fgets(codice, MAX_LEN, stdin);
+
+    codice[strcspn(codice, "\n")] = 0;   /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+
+    printf("Inserisci quantita' da aggiungere: ");
+    scanf("%d", &quantita);
+    getchar();     //rimuove l'eventuale \n rimasto nel buffer
+
+    int trovato = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            ricambi[i].quantita += quantita;          //ricambi[i].quantita = ricambi[i].quantita + quantita
+            alertQuantita(ricambi[i].quantita);
+            trovato = 1;
+            break;
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    } else {
+        salvaRicambi(ricambi, count);
+        printf("Quantita' aggiunta con successo.\n");
+    }
+
+    free(ricambi);
+}
+
+void decurtaQuantita() {
+    Ricambio *ricambi = NULL;
+    int count = caricaRicambi(&ricambi);
+    char codice[MAX_LEN];
+    int quantita;
+
+    if (count == 0) {
+        printf("Nessun ricambio presente.\n");
+        return;
+    }
+
+    printf("Inserisci codice ricambio: ");
+    fgets(codice, MAX_LEN, stdin);
+
+    codice[strcspn(codice, "\n")] = 0;  /*sostituisce \0 allo \n qualora dovesse essere presente in modo da evitare alcuni problemi*/
+
+    printf("Inserisci quantita' da decurtare: ");
+    scanf("%d", &quantita);
+    getchar();               //rimuove \n
+
+    int trovato = 0;
+    for (int i = 0; i < count; i++) {
+        if (strcmp(ricambi[i].codice, codice) == 0) {
+            if (ricambi[i].quantita >= quantita) {
+                ricambi[i].quantita -= quantita;
+                alertQuantita(ricambi[i].quantita);
+                trovato = 1;
+            }
+            else {
+                printf("Quantita' insufficiente. Operazione non eseguita.\n");
+                free(ricambi);
+                return;
+            }
+            break;
+        }
+    }
+
+    if (trovato==0) {
+        printf("Ricambio NON trovato.\n");
+    } else {
+        salvaRicambi(ricambi, count);  
+ /*  ricambi è il puntatore al primo elemento dell'array, mentre *ricambi è il primo elemento dell'array, cioè il dato vero e proprio*/
+        printf("Quantita' decurtata con successo.\n");
+    }
+
+    free(ricambi);
+}
+
+
+
+
+//un problema di questa istruzione è che volta per volta viene ricopiato tutto il file di testo perciò non è molto efficiente
+/* ricambi è un puntatore a RICAMBIO, cioè l'indirizzo del primo elemento dell'array dinamico di ricambi */
+void salvaRicambi(Ricambio *ricambi, int count) {
+    FILE *file = fopen(FILENAME, "w");
+//la printf che segue prende gli elememti dall'array dinamico e li scrive sul file di testo
+    for (int i = 0; i < count; i++) {
+        fprintf(file, "%s;%s;%d;%s;%d\n",
+                ricambi[i].nome,
+                ricambi[i].codice,
+                ricambi[i].quantita,
+                ricambi[i].scaffalatura,
+                ricambi[i].prezzo);    //aggiunta per la funzione prezzo
+    }
+
+    fclose(file);
+}
+
+
+void stampaRicambiOrdinati() {
+    Ricambio *ricambi = NULL;
+    int count = caricaRicambi(&ricambi);
+
+    if (count == 0) {
+        printf("Nessun ricambio da visualizzare.\n");
+        return;
+    }
+
+    ordinaRicambi(ricambi, count);
+
+    printf("\n--- RICAMBI ORDINATI PER SCAFFALATURA ---\n");
+    for (int i = 0; i < count; i++) {
+//%-20s lo uso per far si da avere una "inquadratura" dei ricambi e delle informazioni inserite. 20 indica che ho almeno 20 spazi per il nome
+         printf("%-20s | Codice: %-10s | Quantità: %-3d | Scaffale: %s\n",
+               ricambi[i].nome,
+               ricambi[i].codice,
+               ricambi[i].quantita,
+               ricambi[i].scaffalatura);
+    }
+
+    free(ricambi);
+}
+
+
+/*questa funzione fa uso del bubble sort per l'ordinamento. Confronta coppie di dati adiacenti e li scambia finchè riesco a portare il dato giusto nell'ultima posizione dopodiché riparto da capo e mi fermo alla posizione ultima-1 e successivamente ultima-2 etc. Al termine avrò l'array dinamico ordinato per scaffalatura*/
+  
+void ordinaRicambi(Ricambio *ricambi, int count) {
+    Ricambio temp;     
+/*temp è una variabile locale (della funzione) di tipo struct RICAMBIO*/
+/* i < count-1 perché non posso confrontare l'ultima riga con quella successiva (adiacente)*/  
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (strcmp(ricambi[j].scaffalatura, ricambi[j + 1].scaffalatura) > 0) {   /*se >0 l'elemento precedente viene scambiato con quello successivo*/
+                temp = ricambi[j];
+                ricambi[j] = ricambi[j + 1];
+                ricambi[j + 1] = temp;
+            }
+        }
+    }
+}
+
+
+void stampaRicambiAlfabetici() {
+    Ricambio *ricambi = NULL;     // inizializzo sempre a null per evitare comportamenti indesiderati
+    int count = caricaRicambi(&ricambi);
+
+    if (count == 0) {
+        printf("Nessun ricambio da visualizzare.\n");
+        return;
+    }
+
+    Nodo *head = NULL;       //head è un puntatore ad una variabile di tipo NODO(struct)
+
+    for (int i = 0; i < count; i++) {
+        head = inserisciInOrdine(head, ricambi[i]); 
+
+/* ricambi[i] è l’elemento corrente (il Ricambio che sto leggendo dal file). Lo passo per valore (quindi viene fatta una copia della struct quando passa alla funzione). Inoltre sto passando head che il puntatore al primo elemento della lista (testa).All'inizio è NULL, cioè la lista è vuota. Man mano che aggiungiamo elementi, head cambia e punta sempre al nuovo primo nodo della lista aggiornata*/
+
+    }
+
+    printf("\n--- RICAMBI ORDINATI ALFABETICAMENTE PER NOME ---\n");
+    Nodo *curr = head;   
+/*puntatore curr di tipo nodo che punta alla testa. Uso curr per scorrere la lista senza modificare HEAD*/
+    //scorro la lista curr e stampo tutti gli elementi N.B. while(curr) = while(curr!=NULL)
+
+    while (curr!=NULL) {
+        printf("%-20s | Codice: %-10s | Quantità: %-3d | Scaffale: %s\n",
+               curr->ricambio.nome,      //accede al campo nome dentro la struttura ricambio
+               curr->ricambio.codice,
+               curr->ricambio.quantita,
+               curr->ricambio.scaffalatura);
+        curr = curr->next;
+    }
+
+    //dealloco la memoria riservata alla lista concatenata scorrendo tutta la lista a partire da HEAD
+    while (head!=NULL) {
+        Nodo *tmp = head;    //salvo in tmp l'attuale testa della lista concatenata
+        head = head->next;    //head è il primo nodo della lista e vado al successivo finche non arrivo a puntare NULL
+        free(tmp);  //libero volta per volta la memoria allocata per ogni singolo nodo
+    }
+
+    //libero la memoria allocata per l'array dinamico ricambi
+    free(ricambi);
+}
+
+
+
+
+/*scrivo la funzione di ordinamento alabetico e restituisce il puntatore NODO alla testa della lista concatenata. Nodo* head è il puntatore al primo nodo della lista (la testa della lista). Mentre Ricambio r è la struttura da inserire nella lista*/
+Nodo* inserisciInOrdine(Nodo* head, Ricambio r) {
+   //alloco un nuovo nodo
+   Nodo *nuovo = malloc(sizeof(Nodo));
+    if (nuovo==NULL) {
+        printf("Errore allocazione memoria.\n");
+        exit(1);
+    }
+    //NUOVO è un puntatore ad un nodo di tipo struct NODO
+    //ricambio prende tutti i parametri di r e li copia dentro il nodo
+    /*ricambio è un elemento presente nella struct nodo. Così faccio una copia diretta dell’intera struct r dentro il campo ricambio del nodo*/
+    nuovo->ricambio = r;
+    //inizializzo il nodo successivo a NULL in modo da evitare comportamenti indesiderati
+    nuovo->next = NULL;
+/*se la lista è vuota, NUOVO diventa il primo nodo della lista o se il nome del ricambio r precede quello di head, NUOVO è il primo nodo della lista e contiene HEAD (scambio i nodi)*/
+    if (head==NULL || strcmp(r.nome, head->ricambio.nome) < 0) {
+        nuovo->next = head;
+        return nuovo;
+    }
+
+    Nodo *curr = head;    //creo il puntatore curr che punta alla testa della lista
+
+    //verifico che ci sia un nodo successivo a quello attuale oppure se la lista è finita
+    //se l'attuale ricambio è alfabeticamente successivo al next, vado al next successivo e riconfronto
+
+
+    while (curr->next && strcmp(r.nome, curr->next->ricambio.nome) > 0) {
+        curr = curr->next;
+    }
+
+
+    /*il ciclo while si ferma quando la comparazione fra il nome del ricambio attuale e quello del ricambio nel nodo successivo restituisce valore minore di 0, cioè quando il ricambio attuale viene alfabeticamente prima di quello nel nodo successivo. Così facendo ho trovato la posizione corretta del mio ricambio*/
+
+    //una volta trovata la posizione corretta devo inserire il nuovo nodo contenente il ricambio fra il CURR ed il CURR NEXT
+    //esempio prima:[A] -> [B] -> [C] dopo: [A] -> [B] -> [X] -> [C]
+    nuovo->next = curr->next;    //X->next = C
+    curr->next = nuovo;          //B->next = X
+    return head;
+}
+
+
+
+
